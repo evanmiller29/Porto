@@ -40,7 +40,7 @@ def gini_xgb(preds, dtrain):
 #==============================================================================
 
 base_dir = 'C:/Users/Evan/Documents/GitHub/Data/Porto'
-sub_dir = 'F:/Nerdy Stuff/Kaggle/Porto/Submissions'
+sub_dir = 'F:/Nerdy Stuff/Kaggle submissions/Porto'
 
 os.chdir(base_dir)
 
@@ -101,18 +101,17 @@ watchlist = [(d_train, 'train'), (d_valid, 'valid')]
 # Train the model! We pass in a max of 10,000 rounds (with early stopping after 100)
 # and the custom metric (maximize=True tells xgb that higher metric is better)
 
-mdl = xgb.train(params, d_train, 1000, watchlist, early_stopping_rounds=100, 
-                feval=gini_xgb, maximize=True, verbose_eval=10)
+mdl = xgb.train(params, d_train, 500, watchlist, early_stopping_rounds=100, 
+                feval=gini_xgb, maximize=True, verbose_eval=100)
 
 pred_valid = mdl.predict(d_valid)
-gini_norm_valid = gini_normalized(y_valid, pred_valid)
+gini_norm_valid = round(gini_normalized(y_valid, pred_valid), 4)
 
-print('gini (normalised) for the validation set %s' % (round(gini_norm_valid , 4)))
+print('gini (normalised) for the validation set %s' % (gini_norm_valid))
 
 p_test = mdl.predict(d_test)
 
 print('Creating a submission file..')
-
 os.chdir(sub_dir)
 
 sub = pd.DataFrame()
