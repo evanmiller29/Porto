@@ -84,7 +84,23 @@ print('training catboost..')
 train_pool = Pool(x_train, y_train, cat_features=cat_cols_idx)
 valid_pool = Pool(x_valid, y_valid, cat_features=cat_cols_idx)
 
-model = CatBoostClassifier(iterations=2, learning_rate=1, depth=2, custom_loss='AUC')
+params_old = {'iterations': 2,
+          'learning_rate': 1,
+          'depth': 2,
+          'custom_loss': 'AUC'}
+
+params_new = {'depth':[3,1,2,6,4,5,7,8,9,10],
+          'iterations':[250,100,500,1000],
+          'learning_rate':[0.03,0.001,0.01,0.1,0.2,0.3], 
+          'l2_leaf_reg':[3,1,5,10,100],
+          'border_count':[32,5,10,20,50,100,200],
+          'ctr_border_count':[50,5,10,20,100,200],
+          'thread_count':4,
+          'custom_loss': 'AUC'}
+
+params_set = [params_old, params_new]
+
+model = CatBoostClassifier(**params_old)
 fit_model = model.fit(train_pool)
 
 print('predicting model outputs..')
