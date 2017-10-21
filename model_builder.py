@@ -123,9 +123,7 @@ params_new = {'depth':[3,1,2,6,4,5,7,8,9,10],
           'custom_loss': 'AUC'}
 
 
-bestparams = catboost_param_tune(params_new, x_train,
-                                 y_train, cat_cols_idx)
-
+bestparams = catboost_param_tune(params_new, x_train, y_train, cat_cols_idx)
 
 # train classifier with tuned parameters    
 clf = cb.CatBoostClassifier(**bestparams)

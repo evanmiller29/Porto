@@ -1,0 +1,9 @@
+Links used:
+
+- https://effectiveml.com/using-grid-search-to-optimise-catboost-parameters.html
+- https://www.kaggle.com/sudosudoohio/stratified-kfold-xgboost-eda-tutorial-0-281
+
+Ideas:
+
+- Will want to use stratified sampling to combat class imbalance
+- Imbalanced learn might be a good place to look for this
