@@ -108,19 +108,26 @@ x_train = x_train.fillna(999)
 
 print('training catboost..')
 
-params_old = {'iterations': 2,
-          'learning_rate': 1,
-          'depth': 2,
+params_new = {'depth':[2,8,10],
+          'iterations':[100,250,500,1000],
+          'learning_rate':[0.001,0.01,0.1], 
+          'l2_leaf_reg':[5,10,50],
+          'border_count':[10,50,100,200],
+          'ctr_border_count':[50,10,100,200],
+          'thread_count':5,
           'custom_loss': 'AUC'}
 
-params_new = {'depth':[3,1,2,6,4,5,7,8,9,10],
-          'iterations':[250,100,500,1000],
-          'learning_rate':[0.03,0.001,0.01,0.1,0.2,0.3], 
-          'l2_leaf_reg':[3,1,5,10,100],
-          'border_count':[32,5,10,20,50,100,200],
-          'ctr_border_count':[50,5,10,20,100,200],
-          'thread_count':4,
+params_new = {'depth':2,
+          'iterations':100,
+          'learning_rate':0.001, 
+          'l2_leaf_reg':5,
+          'border_count':10,
+          'ctr_border_count':50,
+          'thread_count':5,
           'custom_loss': 'AUC'}
+
+kfold = 5
+skf = StratifiedKFold(n_splits=kfold, random_state=42)
 
 
 bestparams = catboost_param_tune(params_new, x_train, y_train, cat_cols_idx)
