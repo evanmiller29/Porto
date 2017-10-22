@@ -9,7 +9,7 @@ import pandas as pd
 import os
 import numpy as np
 import catboost as cb
-from sklearn.model_selection import KFold
+from sklearn.model_selection import KFold, StratifiedKFold
 from datetime import datetime
 from itertools import product,chain
 
@@ -46,24 +46,6 @@ def crossvaltest(params,train_set,train_label,cat_dims,n_splits=3):
 
         res.append(np.mean(clf.predict(test)==np.ravel(test_labels)))
     return np.mean(res)
-
-# this function runs grid search on several parameters
-def catboost_param_tune(params,train_set,train_label,cat_dims=None,n_splits=3):
-    ps = paramsearch(params)
-    # search 'border_count', 'l2_leaf_reg' etc. individually 
-    #   but 'iterations','learning_rate' together
-    for prms in chain(ps.grid_search(['border_count']),
-                      ps.grid_search(['ctr_border_count']),
-                      ps.grid_search(['l2_leaf_reg']),
-                      ps.grid_search(['iterations','learning_rate']),
-                      ps.grid_search(['depth'])):
-        res = crossvaltest(prms,train_set,train_label,cat_dims,n_splits)
-        # save the crossvalidation result so that future iterations can reuse the best parameters
-        ps.register_result(res,prms)
-        print(res,prms,'best:',ps.bestscore(),ps.bestparam())
-        
-    return ps.bestparam()
-
 
 #==============================================================================
 # Reading in data
@@ -103,21 +85,11 @@ cat_cols = [i for e in ['cat'] for i in train_cols_up  if e in i]
 
 cat_cols_idx = [i for i, c in enumerate(train_cols_up) if 'cat' in c]
 
-train = train.fillna(999)
 x_train = x_train.fillna(999)
 
 print('training catboost..')
 
-params_new = {'depth':[2,8,10],
-          'iterations':[100,250,500,1000],
-          'learning_rate':[0.001,0.01,0.1], 
-          'l2_leaf_reg':[5,10,50],
-          'border_count':[10,50,100,200],
-          'ctr_border_count':[50,10,100,200],
-          'thread_count':5,
-          'custom_loss': 'AUC'}
-
-params_new = {'depth':2,
+params = {'depth':2,
           'iterations':100,
           'learning_rate':0.001, 
           'l2_leaf_reg':5,
@@ -126,18 +98,33 @@ params_new = {'depth':2,
           'thread_count':5,
           'custom_loss': 'AUC'}
 
-kfold = 5
+
+kfold = 10
 skf = StratifiedKFold(n_splits=kfold, random_state=42)
 
+X = x_train.values
+y = y_train.values
 
-bestparams = catboost_param_tune(params_new, x_train, y_train, cat_cols_idx)
+for i, (train_index, test_index) in enumerate(skf.split(X, y)):
+    
+    print('[Fold %d/%d]' % (i + 1, kfold))
+    X_train, X_valid = X[train_index], X[test_index]
+    y_train, y_valid = y[train_index], y[test_index]
+    # Convert our data into Catboost format
+    
+    train_pool = cb.Pool(X_train, y_train, cat_cols_idx)
+    valid_pool = cb.Pool(X_valid, y_valid, cat_cols_idx)
 
-# train classifier with tuned parameters    
-clf = cb.CatBoostClassifier(**bestparams)
-clf.fit(x_train, np.ravel(y_train), cat_features=cat_cols_idx)
+    clf = cb.CatBoostClassifier(**params)
+    valid_preds = clf.predict(valid_pool)
+    
+    gini_norm_valid = round(gini_normalized(y_valid, valid_preds), 4)
+    
+    # Train the model! We pass in a max of 1,600 rounds (with early stopping after 70)
+    # and the custom metric (maximize=True tells xgb that higher metric is better)
 
-# How do I want to do this last section? Just a random cut of data?
-# print('error:',1-np.mean(res==np.ravel(test_label)))
+    print('[Fold %d/%d Prediciton:]' % (i + 1, kfold))
+    print('Accuracy on validation set: %s' % (gini_norm_valid))
 
 print('predicting model outputs..')
 y_pred = fit_model.predict_proba(x_test)[:,1]
