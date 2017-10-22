@@ -87,6 +87,9 @@ cat_cols_idx = [i for i, c in enumerate(train_cols_up) if 'cat' in c]
 
 x_train = x_train.fillna(999)
 
+X = x_train.values
+y = y_train.values
+
 print('training catboost..')
 
 params = {'depth':2,
@@ -96,14 +99,18 @@ params = {'depth':2,
           'border_count':10,
           'ctr_border_count':50,
           'thread_count':5,
-          'custom_loss': 'AUC'}
+          'custom_loss': 'Logloss'}
 
-
-kfold = 10
+kfold = 3
 skf = StratifiedKFold(n_splits=kfold, random_state=42)
 
-X = x_train.values
-y = y_train.values
+os.chdir(sub_dir)
+
+sub = pd.DataFrame()
+sub['id'] = test_id
+sub['target'] = np.zeros_like(test_id)
+
+gini_res = []
 
 for i, (train_index, test_index) in enumerate(skf.split(X, y)):
     
@@ -114,34 +121,27 @@ for i, (train_index, test_index) in enumerate(skf.split(X, y)):
     
     train_pool = cb.Pool(X_train, y_train, cat_cols_idx)
     valid_pool = cb.Pool(X_valid, y_valid, cat_cols_idx)
-
+    
     clf = cb.CatBoostClassifier(**params)
+    clf.fit(train_pool)
     valid_preds = clf.predict(valid_pool)
     
     gini_norm_valid = round(gini_normalized(y_valid, valid_preds), 4)
-    
-    # Train the model! We pass in a max of 1,600 rounds (with early stopping after 70)
-    # and the custom metric (maximize=True tells xgb that higher metric is better)
 
     print('[Fold %d/%d Prediciton:]' % (i + 1, kfold))
     print('Accuracy on validation set: %s' % (gini_norm_valid))
+    
+    print('predicting model outputs..')
+    
+    p_test = clf.predict_proba(x_test)[:, 1]
+    sub['target'] += p_test/kfold
 
-print('predicting model outputs..')
-y_pred = fit_model.predict_proba(x_test)[:,1]
-
-pred_valid = model.predict(valid_pool)
-
-#I'd prefer to do K-fold here with n = 5 to get the better understanding of the error
-gini_norm_valid = round(gini_normalized(y_valid, pred_valid), 4)
-
-print('gini (normalised) for the validation set %s' % (gini_norm_valid))
-
-os.chdir(sub_dir)
+    gini_res.append(gini_norm_valid)
 
 # Create a submission file
-sub = pd.DataFrame()
-sub['id'] = test_id
-sub['target'] = y_pred
-sub.to_csv('sub{}_{}.csv'.format(datetime.now().strftime('%Y%m%d_%H%M%S'), gini_norm_valid),
+
+avg_gini = str(round(np.mean(gini_res), 4))[0:10]
+
+sub.to_csv('sub{}_{}.csv'.format(datetime.now().strftime('%Y%m%d_%H%M%S'), avg_gini),
                          index=False, float_format='%.4f')
 
