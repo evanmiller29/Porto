@@ -2,6 +2,8 @@ Links used:
 
 - https://effectiveml.com/using-grid-search-to-optimise-catboost-parameters.html
 - https://www.kaggle.com/sudosudoohio/stratified-kfold-xgboost-eda-tutorial-0-281
+- https://www.kaggle.com/cpmpml/extremely-fast-gini-computation
+- https://www.kaggle.com/aharless/simple-catboost-cv-lb-281-on-v9-fwiw
 
 Ideas:
 
