@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 from catboost import CatBoostClassifier
 from sklearn.model_selection import KFold
+from sklearn.preprocessing import MinMaxScaler
 from datetime import datetime
 from numba import jit
 import os
@@ -33,9 +34,11 @@ os.chdir(base_dir)
 
 runDesc = dict()
 
-runDesc['MAX_ROUNDS'] = 650
-runDesc['OPTIMIZE_ROUNDS'] = False
-runDesc['LEARNING_RATE'] = 0.05
+runDesc = {'MAX_ROUNDS': 650,
+           'OPTIMIZE_ROUNDS': False,
+           'LEARNING_RATE': 0.05,
+           'K': 1}
+
 
 train_df = pd.read_csv('train.csv', low_memory = True)
 test_df = pd.read_csv('test.csv', low_memory = True)
@@ -70,21 +73,25 @@ X_test = test_df.drop(['id'], axis=1)
 y_test_pred = 0
 
 # Set up folds
-K = 5
-kf = KFold(n_splits = K, random_state = 1, shuffle = True)
+
+kf = KFold(n_splits = runDesc['K'], random_state = 1, shuffle = True)
 gini_res = []
 
+params = {'learning_rate' : runDesc['LEARNING_RATE'], 
+            'depth' : 6, 
+            'l2_leaf_reg' : 8, 
+            'border_count' : 10,
+            'ctr_border_count' : 50,
+            'iterations' : runDesc['MAX_ROUNDS'],
+            'thread_count' : 6,
+            'loss_function' : 'Logloss'
+        
+        }
+
+
 # Set up classifier
-model = CatBoostClassifier(
-    learning_rate = runDesc['LEARNING_RATE'], 
-    depth=6, 
-    l2_leaf_reg = 8, 
-    border_count = 10,
-    ctr_border_count = 50,
-    iterations = runDesc['MAX_ROUNDS'],
-    thread_count = 6,
-    loss_function='Logloss'
-)
+model = CatBoostClassifier(**params)
+scaler = MinMaxScaler()
 
 # Run CV
 
@@ -93,6 +100,12 @@ for i, (train_index, test_index) in enumerate(kf.split(train_df)):
     # Create data for this fold
     y_train, y_valid = y.iloc[train_index], y.iloc[test_index]
     X_train, X_valid = X.iloc[train_index,:], X.iloc[test_index,:]
+    
+    scaler.fit(X_train)
+    
+    X_train = scaler.transform(X_train)
+    X_test = scaler.transform(X_test)
+    
     print( "\nFold ", i)
     
     # Run model for this fold
@@ -114,7 +127,7 @@ for i, (train_index, test_index) in enumerate(kf.split(train_df)):
     y_test_pred += fit_model.predict_proba(X_test)[:,1]
     gini_res.append(eval_gini(y_valid, pred))
     
-y_test_pred /= K  # Average test set predictions
+y_test_pred /= runDesc['K']  # Average test set predictions
 
 print( "\nGini for full training set:" )
 print(eval_gini(y, y_valid_pred))

@@ -8,4 +8,8 @@ Links used:
 Ideas:
 
 - Will want to use stratified sampling to combat class imbalance
+	- Looked at blog posts and it seems that this isn't such an issue
 - Imbalanced learn might be a good place to look for this
+	- SMOTE/ROSE
+- Applying feature selection
+- Doing custom transformations to varaibles etc (just bin em, log em etc)
