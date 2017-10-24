@@ -32,13 +32,11 @@ script_dir = 'C:/Users/Evan/Documents/GitHub/Porto'
 
 os.chdir(base_dir)
 
-runDesc = dict()
-
 runDesc = {'MAX_ROUNDS': 650,
            'OPTIMIZE_ROUNDS': False,
            'LEARNING_RATE': 0.05,
-           'K': 1}
-
+           'K': 5,
+           'CROSS_VAL': False}
 
 train_df = pd.read_csv('train.csv', low_memory = True)
 test_df = pd.read_csv('test.csv', low_memory = True)
@@ -73,6 +71,8 @@ X_test = test_df.drop(['id'], axis=1)
 y_test_pred = 0
 
 # Set up folds
+
+if runDesc['CROSS_VAL']:
 
 kf = KFold(n_splits = runDesc['K'], random_state = 1, shuffle = True)
 gini_res = []
