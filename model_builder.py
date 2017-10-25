@@ -36,7 +36,7 @@ runDesc = {'MAX_ROUNDS': 650,
            'OPTIMIZE_ROUNDS': False,
            'LEARNING_RATE': 0.05,
            'K': 5,
-           'CROSS_VAL': True}
+           'CROSS_VAL': False}
 
 train_df = pd.read_csv('train.csv', low_memory = True)
 test_df = pd.read_csv('test.csv', low_memory = True)
@@ -46,14 +46,12 @@ sample = pd.read_csv('sample_submission.csv', low_memory = True)
 id_test = test_df['id'].values
 id_train = train_df['id'].values
 
-train_df = train_df.fillna(999)
-test_df = test_df.fillna(999)
-
 # =============================================================================
 # Looking at vars for feature engineering
 # =============================================================================
 
-var_desc = list()
+var_desc = pd.DataFrame(columns = ['name', 'ttl_obs', 'missing_obs','unique_vals', 
+                                   'perc_25', 'perc_50', 'perc_75', 'perc_95'])
 feat_suffixes = ['ind', 'cat', 'bin', 'reg', 'car', 'calc']
 
 for suffix in feat_suffixes:
@@ -73,17 +71,25 @@ for suffix in feat_suffixes:
         print('Number of unique values: %s' % (unique_vals))
         
         var_res = {'name': col, 
+                   'ttl_obs': train_df[col].count(),
+                   'missing_obs': train_df[col].isnull().sum(),
                    'unique_vals': unique_vals,
                    'perc_25': quants.iloc[0],
                    'perc_50': quants.iloc[1],
                    'perc_75': quants.iloc[2],
                    'perc_95': quants.iloc[3]}
         
-        var_desc.append(var_res)
+        var_desc = var_desc.append(var_res, ignore_index = True)
+
+var_desc = var_desc.drop_duplicates()
+var_desc
 
 # =============================================================================
 # Preparing information for the next stage
 # =============================================================================
+
+train_df = train_df.fillna(999)
+test_df = test_df.fillna(999)
 
 col_to_drop = train_df.columns[train_df.columns.str.startswith('ps_calc_')]
 cat_cols = [i for e in ['cat'] for i in train_df.columns  if e in i]
@@ -107,9 +113,6 @@ X_test = test_df.drop(['id'], axis=1)
 y_test_pred = 0
 
 # Set up folds
-
-
-
 
 gini_res = []
 
@@ -135,9 +138,7 @@ if runDesc['CROSS_VAL']:
         # Create data for this fold
         y_train, y_valid = y.iloc[train_index], y.iloc[test_index]
         X_train, X_valid = X.iloc[train_index,:], X.iloc[test_index,:]
-        
-        X_train, y_train = SMOTE(random_state=42).fit_sample(X_train, y_train)
-        
+                
         print( "\nFold ", i)
         
         # Run model for this fold
@@ -187,6 +188,8 @@ if not runDesc['CROSS_VAL']:
             
     print( "\nGini for full training set:" )
     print(eval_gini(y, pred))
+    
+    avg_gini = eval_gini(y, pred)
     
 os.chdir(sub_dir)
 # Create submission file
