@@ -67,12 +67,13 @@ for suffix in feat_suffixes:
         
         unique_vals = train_df[col].nunique()
         quants = train_df[col].quantile([.25, .5, .75, .95])
+        ttl_miss = train_df[col][(train_df[col]== -1)].sum() * -1
         
         print('Number of unique values: %s' % (unique_vals))
         
         var_res = {'name': col, 
                    'ttl_obs': train_df[col].count(),
-                   'missing_obs': train_df[col].isnull().sum(),
+                   'missing_obs': ttl_miss,
                    'unique_vals': unique_vals,
                    'perc_25': quants.iloc[0],
                    'perc_50': quants.iloc[1],
@@ -82,7 +83,7 @@ for suffix in feat_suffixes:
         var_desc = var_desc.append(var_res, ignore_index = True)
 
 var_desc = var_desc.drop_duplicates()
-var_desc
+print(var_desc)
 
 # =============================================================================
 # Preparing information for the next stage

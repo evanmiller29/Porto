@@ -4,12 +4,18 @@ Links used:
 - https://www.kaggle.com/sudosudoohio/stratified-kfold-xgboost-eda-tutorial-0-281
 - https://www.kaggle.com/cpmpml/extremely-fast-gini-computation
 - https://www.kaggle.com/aharless/simple-catboost-cv-lb-281-on-v9-fwiw
+- https://www.kaggle.com/pavetr/stacking-lb-0-285
 
 Ideas:
 
 - Will want to use stratified sampling to combat class imbalance
 	- Looked at blog posts and it seems that this isn't such an issue
 - Imbalanced learn might be a good place to look for this
-	- SMOTE/ROSE
+	- SMOTE/ROSE/ADAYSL
+- Missing values:
+	- Mostly in cat/car vars. One reg var too
+	- Will want to try different imputation methods for each type
+- Feature Engineering
+	-https://www.kaggle.com/pavetr/stacking-lb-0-285
 - Applying feature selection
 - Doing custom transformations to varaibles etc (just bin em, log em etc)
