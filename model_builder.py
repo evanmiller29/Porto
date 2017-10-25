@@ -2,12 +2,10 @@ import numpy as np
 import pandas as pd
 from catboost import CatBoostClassifier
 from sklearn.model_selection import KFold, train_test_split
-from sklearn.preprocessing import MinMaxScaler
 from datetime import datetime
 from numba import jit
 import os
 from imblearn.over_sampling import SMOTE
-from imblearn import pipeline as pl
 
 # Compute gini
 
@@ -51,6 +49,42 @@ id_train = train_df['id'].values
 train_df = train_df.fillna(999)
 test_df = test_df.fillna(999)
 
+# =============================================================================
+# Looking at vars for feature engineering
+# =============================================================================
+
+var_desc = list()
+feat_suffixes = ['ind', 'cat', 'bin', 'reg', 'car', 'calc']
+
+for suffix in feat_suffixes:
+
+    cols = [i for e in suffix for i in train_df.columns  if e in i]
+    
+    print('Column suffix: %s' %(suffix))
+    print(train_df[cols].describe())
+    
+    for col in cols:
+        
+        print(train_df[col].value_counts())
+        
+        unique_vals = train_df[col].nunique()
+        quants = train_df[col].quantile([.25, .5, .75, .95])
+        
+        print('Number of unique values: %s' % (unique_vals))
+        
+        var_res = {'name': col, 
+                   'unique_vals': unique_vals,
+                   'perc_25': quants.iloc[0],
+                   'perc_50': quants.iloc[1],
+                   'perc_75': quants.iloc[2],
+                   'perc_95': quants.iloc[3]}
+        
+        var_desc.append(var_res)
+
+# =============================================================================
+# Preparing information for the next stage
+# =============================================================================
+
 col_to_drop = train_df.columns[train_df.columns.str.startswith('ps_calc_')]
 cat_cols = [i for e in ['cat'] for i in train_df.columns  if e in i]
 cat_cols_idx = [i for i, c in enumerate(train_df.columns) if 'cat' in c]
@@ -73,6 +107,9 @@ X_test = test_df.drop(['id'], axis=1)
 y_test_pred = 0
 
 # Set up folds
+
+
+
 
 gini_res = []
 
@@ -142,7 +179,6 @@ if not runDesc['CROSS_VAL']:
             print( "  N trees = ", model.tree_count_ )
     else:
         
-        X_train, y_train = SMOTE(random_state=42).fit_sample(X_train, y_train)
         fit_model = model.fit( X_train, y_train )
             
         # Generate validation predictions for this fold
