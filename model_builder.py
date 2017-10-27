@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 from catboost import CatBoostClassifier
 from sklearn.model_selection import KFold, train_test_split
+from sklearn.preprocessing import Imputer
 from datetime import datetime
 from numba import jit
 import os
@@ -36,7 +37,7 @@ runDesc = {'MAX_ROUNDS': 650,
            'OPTIMIZE_ROUNDS': False,
            'LEARNING_RATE': 0.05,
            'K': 5,
-           'CROSS_VAL': False}
+           'CROSS_VAL': True}
 
 train_df = pd.read_csv('train.csv', low_memory = True)
 test_df = pd.read_csv('test.csv', low_memory = True)
@@ -47,7 +48,7 @@ id_test = test_df['id'].values
 id_train = train_df['id'].values
 
 # =============================================================================
-# Looking at vars for feature engineering
+# Getting a deeper understanding of the data
 # =============================================================================
 
 var_desc = pd.DataFrame(columns = ['name', 'ttl_obs', 'missing_obs','unique_vals', 
@@ -82,15 +83,36 @@ for suffix in feat_suffixes:
         
         var_desc = var_desc.append(var_res, ignore_index = True)
 
-var_desc = var_desc.drop_duplicates()
+var_desc_df = var_desc.drop_duplicates()
 print(var_desc)
+
+var_desc_df_test = var_desc(train_df, feat_suffixes)
+
+print('testing for equality between approaches..')
+var_desc_df.equals(var_desc_df_test)
+
 
 # =============================================================================
 # Preparing information for the next stage
 # =============================================================================
 
-train_df = train_df.fillna(999)
-test_df = test_df.fillna(999)
+miss_var_cols = var_desc['name'].loc[var_desc['missing_obs'] > 0]
+
+cat_miss = [i for e in ['cat'] for i in list(miss_var_cols)  if e in i] + ['ps_car_11', 'ps_car_12']
+reg_miss = [i for e in ['reg'] for i in list(miss_var_cols)  if e in i] + ['ps_car_14']
+
+for col in cat_miss:
+    
+    train_df[col] = train_df[col].fillna(train_df[col].mode()[0], inplace=True)
+    test_df[col] = test_df[col].fillna(test_df[col].mode()[0], inplace=True)
+
+for col in reg_miss:
+    
+    train_df[col] = train_df[col].fillna(train_df[col].median(), inplace=True)
+    test_df[col] = test_df[col].fillna(test_df[col].median(), inplace=True)
+
+#train_df = train_df.fillna(999)
+#test_df = test_df.fillna(999)
 
 col_to_drop = train_df.columns[train_df.columns.str.startswith('ps_calc_')]
 cat_cols = [i for e in ['cat'] for i in train_df.columns  if e in i]
