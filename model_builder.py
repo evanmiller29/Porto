@@ -4,113 +4,78 @@ from catboost import CatBoostClassifier
 from sklearn.model_selection import KFold, train_test_split
 from sklearn.preprocessing import Imputer
 from datetime import datetime
-from numba import jit
 import os
-from imblearn.over_sampling import SMOTE
 
-# Compute gini
+# =============================================================================
+# Run meta data
+# =============================================================================
 
-# from CPMP's kernel https://www.kaggle.com/cpmpml/extremely-fast-gini-computation
-@jit
-def eval_gini(y_true, y_prob):
-    y_true = np.asarray(y_true)
-    y_true = y_true[np.argsort(y_prob)]
-    ntrue = 0
-    gini = 0
-    delta = 0
-    n = len(y_true)
-    for i in range(n-1, -1, -1):
-        y_i = y_true[i]
-        ntrue += y_i
-        gini += y_i * delta
-        delta += 1 - y_i
-    gini = 1 - 2 * gini / (ntrue * (n - ntrue))
-    return gini
-
-base_dir = 'C:/Users/Evan/Documents/GitHub/Data/Porto'
-sub_dir = 'F:/Nerdy Stuff/Kaggle submissions/Porto'
-script_dir = 'C:/Users/Evan/Documents/GitHub/Porto'
-
-os.chdir(base_dir)
-
-runDesc = {'MAX_ROUNDS': 650,
+runDesc = {'feat_suffixes' : ['ind', 'cat', 'bin', 'reg', 'car', 'calc'],
+           'MISS_VALS': -1,
+           'MAX_ROUNDS': 650,
            'OPTIMIZE_ROUNDS': False,
            'LEARNING_RATE': 0.05,
            'K': 5,
            'CROSS_VAL': True}
 
+base_dir = 'C:/Users/Evan/Documents/GitHub/Data/Porto'
+sub_dir = 'F:/Nerdy Stuff/Kaggle submissions/Porto'
+script_dir = 'C:/Users/Evan/Documents/GitHub/Porto'
+
+# =============================================================================
+# Reading in custom functions
+# =============================================================================
+
+os.chdir(script_dir)
+
+from functions import var_desc, eval_gini
+
+# =============================================================================
+# Reading in data
+# =============================================================================
+
+os.chdir(base_dir)
+
 train_df = pd.read_csv('train.csv', low_memory = True)
 test_df = pd.read_csv('test.csv', low_memory = True)
 sample = pd.read_csv('sample_submission.csv', low_memory = True)
 
-# Process data
 id_test = test_df['id'].values
 id_train = train_df['id'].values
 
-# =============================================================================
-# Getting a deeper understanding of the data
-# =============================================================================
+print('Replacing missing values with the default..')
 
-var_desc = pd.DataFrame(columns = ['name', 'ttl_obs', 'missing_obs','unique_vals', 
-                                   'perc_25', 'perc_50', 'perc_75', 'perc_95'])
-feat_suffixes = ['ind', 'cat', 'bin', 'reg', 'car', 'calc']
+train_df = train_df.replace(runDesc['MISS_VALS'], np.nan)
+test_df = test_df.replace(runDesc['MISS_VALS'], np.nan)
 
-for suffix in feat_suffixes:
-
-    cols = [i for e in suffix for i in train_df.columns  if e in i]
-    
-    print('Column suffix: %s' %(suffix))
-    print(train_df[cols].describe())
-    
-    for col in cols:
-        
-        print(train_df[col].value_counts())
-        
-        unique_vals = train_df[col].nunique()
-        quants = train_df[col].quantile([.25, .5, .75, .95])
-        ttl_miss = train_df[col][(train_df[col]== -1)].sum() * -1
-        
-        print('Number of unique values: %s' % (unique_vals))
-        
-        var_res = {'name': col, 
-                   'ttl_obs': train_df[col].count(),
-                   'missing_obs': ttl_miss,
-                   'unique_vals': unique_vals,
-                   'perc_25': quants.iloc[0],
-                   'perc_50': quants.iloc[1],
-                   'perc_75': quants.iloc[2],
-                   'perc_95': quants.iloc[3]}
-        
-        var_desc = var_desc.append(var_res, ignore_index = True)
-
-var_desc_df = var_desc.drop_duplicates()
-print(var_desc)
-
-var_desc_df_test = var_desc(train_df, feat_suffixes)
-
-print('testing for equality between approaches..')
-var_desc_df.equals(var_desc_df_test)
-
+var_desc_initial = var_desc(train_df, runDesc['feat_suffixes'])
 
 # =============================================================================
 # Preparing information for the next stage
 # =============================================================================
 
-miss_var_cols = var_desc['name'].loc[var_desc['missing_obs'] > 0]
+print('Defining imputers and who to use them on..')
+
+med_imp = Imputer(missing_values = 'NaN', strategy = 'median', axis = 0)
+mode_imp = Imputer(missing_values = 'NaN', strategy = 'most_frequent', axis = 0)
+
+miss_var_cols = var_desc_initial['name'].loc[var_desc_initial['missing_obs'] > 0]
 
 cat_miss = [i for e in ['cat'] for i in list(miss_var_cols)  if e in i] + ['ps_car_11', 'ps_car_12']
 reg_miss = [i for e in ['reg'] for i in list(miss_var_cols)  if e in i] + ['ps_car_14']
 
 for col in cat_miss:
     
-    train_df[col] = train_df[col].fillna(train_df[col].mode()[0], inplace=True)
-    test_df[col] = test_df[col].fillna(test_df[col].mode()[0], inplace=True)
+    train_df[col] = mode_imp.fit_transform(train_df[[col]]).ravel()
+    test_df[col] = mode_imp.fit_transform(test_df[[col]]).ravel()
 
 for col in reg_miss:
     
-    train_df[col] = train_df[col].fillna(train_df[col].median(), inplace=True)
-    test_df[col] = test_df[col].fillna(test_df[col].median(), inplace=True)
+    train_df[col] = med_imp.fit_transform(train_df[[col]]).ravel()
+    test_df[col] = med_imp.fit_transform(test_df[[col]]).ravel()
 
+var_desc_after_rec = var_desc(train_df, runDesc['feat_suffixes'])
+    
 #train_df = train_df.fillna(999)
 #test_df = test_df.fillna(999)
 
